@@ -1,6 +1,6 @@
-# DNS Stress Test
+# DNS Stress Test Tools
 
-Questo progetto esegue test di risoluzione DNS su una lista di domini utilizzando diversi server DNS. Può eseguire i test in modalità sincrona o asincrona e visualizzare i risultati in un grafico.
+This project provides tools to test the performance of DNS resolution using multiple DNS servers and domains.
 
 ## Requisiti
 
@@ -30,27 +30,78 @@ Assicurati di avere Python 3.6 o superiore installato sul tuo sistema.
     sudo apt-get install python3-tk
     ```
 
-## Utilizzo
+## Scripts
 
-### Esecuzione dei test
+### dns-stress.py
 
-Per eseguire i test di risoluzione DNS, utilizza il seguente comando:
+This script performs DNS resolution tests using both synchronous and asynchronous methods. It supports calculating and displaying various statistics, including average, minimum, maximum, 50th percentile, 90th percentile, and 95th percentile response times.
 
-```sh
-python dns-stress.py
+#### Usage
+
+```bash
+./dns-stress.py --config-file <path_to_config> [options]
 ```
 
-### Parametri
+#### Options
 
-Puoi specificare i seguenti parametri durante l'esecuzione del comando:
+- `--config-file`: Path to the configuration file (default: `config.yaml`).
+- `--show-graph`: Show the results graph.
+- `--summary-only`: Show only the summary results.
+- `--load-graph`: Load and show graph from saved results.
+- `--silent-mode`: Disable per-request output, show progress bar instead.
+- `--async-mode`: Run tests in asynchronous mode.
 
-- `-d`, `--domains`: Specifica il file contenente la lista di domini (default: `domains.txt`).
-- `-s`, `--servers`: Specifica il file contenente la lista di server DNS (default: `servers.txt`).
-- `-m`, `--mode`: Specifica la modalità di esecuzione (`sync` per sincrono, `async` per asincrono; default: `sync`).
-- `-o`, `--output`: Specifica il file di output per i risultati (default: `results.csv`).
+### dns-stress-v2.py
 
-Esempio di utilizzo con parametri:
+This script is similar to `dns-stress.py` but includes additional features for calculating and displaying percentile values (50th, 90th, and 95th percentiles) in the summary and graphs.
 
-```sh
-python dns-stress.py -d mydomains.txt -s myservers.txt -m async -o myresults.csv
+#### Usage
+
+```bash
+./dns-stress-v2.py --config-file <path_to_config> [options]
 ```
+
+#### Options
+
+- `--config-file`: Path to the configuration file (default: `config.yaml`).
+- `--show-graph`: Show the results graph.
+- `--summary-only`: Show only the summary results.
+- `--load-graph`: Load and show graph from saved results.
+- `--silent-mode`: Disable per-request output, show progress bar instead.
+- `--async-mode`: Run tests in asynchronous mode.
+
+## Configuration
+
+Both scripts use a configuration file (`config.yaml` by default) to specify the DNS servers, number of tests, output file, and domains file.
+
+Example `config.yaml`:
+
+```yaml
+dns_servers:
+  - 8.8.8.8
+  - 8.8.4.4
+num_tests: 100
+output_file: results.json
+domains_file: domains.txt
+```
+
+## Domains File
+
+The domains file should contain a list of domains to test, one per line.
+
+Example `domains.txt`:
+
+```
+example.com
+google.com
+yahoo.com
+```
+
+## Output
+
+The results are saved in a JSON file specified in the configuration file. The summary and graphs can be displayed based on the provided options.
+
+## Summary
+
+- `dns-stress.py`: Basic DNS resolution testing with average, min, max, and 50th percentile statistics.
+- `dns-stress-v2.py`: Enhanced DNS resolution testing with additional 90th and 95th percentile statistics.
