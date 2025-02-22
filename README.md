@@ -79,11 +79,14 @@ Example `config.yaml`:
 
 ```yaml
 dns_servers:
-  - 8.8.8.8
-  - 8.8.4.4
-num_tests: 100
-output_file: results.json
-domains_file: domains.txt
+  - "1.1.1.1"
+  - "8.8.8.8"
+  - "192.168.1.254"
+  - "192.168.1.57"
+
+num_tests: 20
+output_file: "dns_test_results.json"
+domains_file: "domains.txt"
 ```
 
 ## Domains File

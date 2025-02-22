@@ -68,8 +68,95 @@ def test_single_dns(server, domains, num_tests, silent_mode=False):
     progress_bar.close()
     return results
 
-def summarize_results(results):
-    print("\nSummary of DNS Test Results:")
+async def async_test_dns_resolution(dns_servers, domains, num_tests, output_file, show_graph=False, summary_only=False, silent_mode=False):
+    results = {server: [] for server in dns_servers}
+    
+    if not domains:
+        print("Errore: Nessun dominio disponibile per il test.")
+        return
+    
+    progress_bar = tqdm(total=num_tests * len(dns_servers), desc="Testing DNS resolution", unit="req")
+    summary_data = {server: [] for server in dns_servers}
+    
+    async def resolve_domain(session, server, domain):
+        start_time = time.time()
+        try:
+            await session.get(f"http://{domain}", timeout=2)
+            elapsed_time = (time.time() - start_time) * 1000  # Convert to ms
+        except Exception:
+            elapsed_time = None  # Failed resolution
+        results[server].append(elapsed_time)
+        summary_data[server].append(elapsed_time)
+        
+        if not silent_mode:
+            tqdm.write(f"{domain} - {server}: {elapsed_time} ms")
+        
+        progress_bar.update(1)
+    
+    async with aiohttp.ClientSession() as session:
+        tasks = []
+        for _ in range(num_tests):
+            domain = random.choice(domains)
+            random.shuffle(dns_servers)  # Randomizza l'ordine dei server DNS
+            for server in dns_servers:
+                tasks.append(resolve_domain(session, server, domain))
+        await asyncio.gather(*tasks)
+    
+    progress_bar.close()
+    
+    with open(output_file, "w") as f:
+        json.dump(results, f, indent=4)
+    
+    summarize_results(results, "parallel")
+    
+    if show_graph:
+        plot_results(results, "parallel")
+    
+    return results
+
+def test_dns_resolution(dns_servers, domains, num_tests, output_file, show_graph=False, summary_only=False, silent_mode=False):
+    results = {server: [] for server in dns_servers}
+    
+    if not domains:
+        print("Errore: Nessun dominio disponibile per il test.")
+        return results
+    
+    progress_bar = tqdm(total=num_tests * len(dns_servers), desc="Testing DNS resolution", unit="req")
+    summary_data = {server: [] for server in dns_servers}
+    
+    for _ in range(num_tests):
+        domain = random.choice(domains)
+        random.shuffle(dns_servers)  # Randomizza l'ordine dei server DNS
+        for server in dns_servers:
+            start_time = time.time()
+            try:
+                socket.setdefaulttimeout(2)
+                socket.getaddrinfo(domain, 80, proto=socket.IPPROTO_TCP)
+                elapsed_time = (time.time() - start_time) * 1000  # Convert to ms
+            except socket.gaierror:
+                elapsed_time = None  # Failed resolution
+            results[server].append(elapsed_time)
+            summary_data[server].append(elapsed_time)
+            
+            if not silent_mode:
+                tqdm.write(f"{domain} - {server}: {elapsed_time} ms")
+            
+            progress_bar.update(1)
+    
+    progress_bar.close()
+    
+    with open(output_file, "w") as f:
+        json.dump(results, f, indent=4)
+    
+    summarize_results(results, "parallel")
+    
+    if show_graph:
+        plot_results(results, "parallel")
+    
+    return results
+
+def summarize_results(results, benchmode):
+    print(f"\nSummary of DNS Test Results (Benchmode: {benchmode}):")
     for server, times in results.items():
         valid_times = list(filter(None, times))
         if valid_times:
@@ -77,7 +164,7 @@ def summarize_results(results):
         else:
             print(f"{server}: No successful resolutions")
 
-def plot_results(results):
+def plot_results(results, benchmode):
     servers = list(results.keys())
     values = [list(filter(None, results[server])) for server in servers]
     means = [np.mean(val) if val else 0 for val in values]
@@ -90,13 +177,13 @@ def plot_results(results):
     plt.bar(servers, p95s, color='orange', alpha=0.5, label='95th Percentile')
     plt.xlabel("DNS Servers")
     plt.ylabel("Response Time (ms)")
-    plt.title("DNS Resolution Performance")
+    plt.title(f"DNS Resolution Performance (Benchmode: {benchmode})")
     plt.legend()
     plt.grid(axis='y')
     plt.show(block=True)
 
-def summarize_p90_results(results):
-    print("\n90th Percentile DNS Test Results:")
+def summarize_p90_results(results, benchmode):
+    print(f"\n90th Percentile DNS Test Results (Benchmode: {benchmode}):")
     for server, times in results.items():
         valid_times = list(filter(None, times))
         if valid_times:
@@ -104,7 +191,7 @@ def summarize_p90_results(results):
         else:
             print(f"{server}: No successful resolutions")
 
-def plot_p90_results(results):
+def plot_p90_results(results, benchmode):
     servers = list(results.keys())
     values = [list(filter(None, results[server])) for server in servers]
     p90s = [np.percentile(val, 90) if val else 0 for val in values]
@@ -113,12 +200,12 @@ def plot_p90_results(results):
     plt.bar(servers, p90s, color='red', alpha=0.5, label='90th Percentile')
     plt.xlabel("DNS Servers")
     plt.ylabel("Response Time (ms)")
-    plt.title("90th Percentile DNS Resolution Performance")
+    plt.title(f"90th Percentile DNS Resolution Performance (Benchmode: {benchmode})")
     plt.legend()
     plt.grid(axis='y')
     plt.show(block=True)
 
-def load_and_plot(output_file):
+def load_and_plot(output_file, benchmode):
     with open(output_file, "r") as f:
         results = json.load(f)
-    plot_results(results)
+    plot_results(results, benchmode)

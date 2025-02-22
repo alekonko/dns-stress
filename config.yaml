@@ -4,6 +4,6 @@ dns_servers:
   - "192.168.1.254"
   - "192.168.1.57"
 
-num_tests: 20
+num_tests: 2000
 output_file: "dns_test_results.json"
 domains_file: "domains.txt"
