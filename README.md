@@ -1,10 +1,11 @@
-# DNS Stress Test Tools
+# DNS Stress Test
 
-This project provides tools to test the performance of DNS resolution using multiple DNS servers and domains.
+Questo progetto esegue test di risoluzione DNS utilizzando server DNS specificati e domini di test.
 
 ## Requisiti
 
-Assicurati di avere Python 3.6 o superiore installato sul tuo sistema.
+- Python 3.x
+- Moduli Python: `aiohttp`, `tqdm`, `matplotlib`, `numpy`, `pyyaml`
 
 ## Installazione
 
@@ -20,9 +21,9 @@ Assicurati di avere Python 3.6 o superiore installato sul tuo sistema.
     source venv/bin/activate
     ```
 
-3. Installa le dipendenze:
+3. Installa i moduli richiesti utilizzando `pip`:
     ```sh
-    pip install -r requirements.txt
+    pip install aiohttp tqdm matplotlib numpy pyyaml
     ```
 
 4. (Opzionale) Installa `tkinter` per il backend di Matplotlib:
