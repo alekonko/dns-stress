@@ -21,25 +21,18 @@ def load_domains(file_path):
     with open(file_path, "r") as f:
         return [line.strip() for line in f.readlines() if line.strip()]
 
-async def async_test_dns_resolution(dns_servers, domains, num_tests, output_file, show_graph=False, summary_only=False, silent_mode=False):
-    results = {server: [] for server in dns_servers}
+async def async_test_single_dns(server, domains, num_tests, silent_mode=False):
+    results = []
+    progress_bar = tqdm(total=num_tests, desc=f"Testing {server}", unit="req")
     
-    if not domains:
-        print("Errore: Nessun dominio disponibile per il test.")
-        return
-    
-    progress_bar = tqdm(total=num_tests * len(dns_servers), desc="Testing DNS resolution", unit="req")
-    summary_data = {server: [] for server in dns_servers}
-    
-    async def resolve_domain(session, server, domain):
+    async def resolve_domain(session, domain):
         start_time = time.time()
         try:
             await session.get(f"http://{domain}", timeout=2)
             elapsed_time = (time.time() - start_time) * 1000  # Convert to ms
         except Exception:
             elapsed_time = None  # Failed resolution
-        results[server].append(elapsed_time)
-        summary_data[server].append(elapsed_time)
+        results.append(elapsed_time)
         
         if not silent_mode:
             tqdm.write(f"{domain} - {server}: {elapsed_time} ms")
@@ -50,60 +43,33 @@ async def async_test_dns_resolution(dns_servers, domains, num_tests, output_file
         tasks = []
         for _ in range(num_tests):
             domain = random.choice(domains)
-            for server in dns_servers:
-                tasks.append(resolve_domain(session, server, domain))
+            tasks.append(resolve_domain(session, domain))
         await asyncio.gather(*tasks)
     
     progress_bar.close()
-    
-    with open(output_file, "w") as f:
-        json.dump(results, f, indent=4)
-    
-    summarize_results(results)
-    
-    if show_graph:
-        plot_results(results)
-    
     return results
 
-def test_dns_resolution(dns_servers, domains, num_tests, output_file, show_graph=False, summary_only=False, silent_mode=False):
-    results = {server: [] for server in dns_servers}
-    
-    if not domains:
-        print("Errore: Nessun dominio disponibile per il test.")
-        return results
-    
-    progress_bar = tqdm(total=num_tests * len(dns_servers), desc="Testing DNS resolution", unit="req")
-    summary_data = {server: [] for server in dns_servers}
+def test_single_dns(server, domains, num_tests, silent_mode=False):
+    results = []
+    progress_bar = tqdm(total=num_tests, desc=f"Testing {server}", unit="req")
     
     for _ in range(num_tests):
         domain = random.choice(domains)
-        for server in dns_servers:
-            start_time = time.time()
-            try:
-                socket.setdefaulttimeout(2)
-                socket.getaddrinfo(domain, 80, proto=socket.IPPROTO_TCP)
-                elapsed_time = (time.time() - start_time) * 1000  # Convert to ms
-            except socket.gaierror:
-                elapsed_time = None  # Failed resolution
-            results[server].append(elapsed_time)
-            summary_data[server].append(elapsed_time)
-            
-            if not silent_mode:
-                tqdm.write(f"{domain} - {server}: {elapsed_time} ms")
-            
-            progress_bar.update(1)
+        start_time = time.time()
+        try:
+            socket.setdefaulttimeout(2)
+            socket.getaddrinfo(domain, 80, proto=socket.IPPROTO_TCP)
+            elapsed_time = (time.time() - start_time) * 1000  # Convert to ms
+        except socket.gaierror:
+            elapsed_time = None  # Failed resolution
+        results.append(elapsed_time)
+        
+        if not silent_mode:
+            tqdm.write(f"{domain} - {server}: {elapsed_time} ms")
+        
+        progress_bar.update(1)
     
     progress_bar.close()
-    
-    with open(output_file, "w") as f:
-        json.dump(results, f, indent=4)
-    
-    summarize_results(results)
-    
-    if show_graph:
-        plot_results(results)
-    
     return results
 
 def summarize_results(results):
@@ -179,13 +145,19 @@ if __name__ == "__main__":
     domains_file = config["domains_file"]
     domains = load_domains(domains_file)
     
+    results = {}
+    
     if args.load_graph:
         load_and_plot(output_file)
     else:
-        if args.async_mode:
-            results = asyncio.run(async_test_dns_resolution(dns_servers, domains, num_tests, output_file, args.show_graph, args.summary_only, args.silent_mode))
-        else:
-            results = test_dns_resolution(dns_servers, domains, num_tests, output_file, args.show_graph, args.summary_only, args.silent_mode)
+        for server in dns_servers:
+            if args.async_mode:
+                results[server] = asyncio.run(async_test_single_dns(server, domains, num_tests, args.silent_mode))
+            else:
+                results[server] = test_single_dns(server, domains, num_tests, args.silent_mode)
+        
+        with open(output_file, "w") as f:
+            json.dump(results, f, indent=4)
         
         summarize_results(results)
         summarize_p90_results(results)
@@ -193,4 +165,3 @@ if __name__ == "__main__":
         if args.show_graph:
             plot_results(results)
             plot_p90_results(results)
-
