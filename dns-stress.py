@@ -50,6 +50,7 @@ async def async_test_dns_resolution(dns_servers, domains, num_tests, output_file
         tasks = []
         for _ in range(num_tests):
             domain = random.choice(domains)
+            random.shuffle(dns_servers)  # Randomizza l'ordine dei server DNS
             for server in dns_servers:
                 tasks.append(resolve_domain(session, server, domain))
         await asyncio.gather(*tasks)
@@ -78,6 +79,7 @@ def test_dns_resolution(dns_servers, domains, num_tests, output_file, show_graph
     
     for _ in range(num_tests):
         domain = random.choice(domains)
+        random.shuffle(dns_servers)  # Randomizza l'ordine dei server DNS
         for server in dns_servers:
             start_time = time.time()
             try:
