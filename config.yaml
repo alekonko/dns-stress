@@ -1,0 +1,8 @@
+dns_servers:
+  - "8.8.8.8"
+  - "1.1.1.1"
+  - "192.168.1.254"
+  - "192.168.1.57"
+num_tests: 5000
+output_file: "dns_test_results.json"
+domains_file: "domains.txt"

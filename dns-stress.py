@@ -9,15 +9,62 @@ import numpy as np
 import json
 import random
 from tqdm import tqdm
+import asyncio
+import aiohttp
+import yaml
 
-NUM_TESTS = 1000  # Numero di ripetizioni delle risoluzioni per ogni dominio
-DOMAINS_FILE = "domains.txt"
+def load_config(config_file="config.yaml"):
+    with open(config_file, "r") as f:
+        return yaml.safe_load(f)
 
 def load_domains(file_path):
     with open(file_path, "r") as f:
         return [line.strip() for line in f.readlines() if line.strip()]
 
-def test_dns_resolution(dns_servers, domains, num_tests=NUM_TESTS, show_graph=False, summary_only=False, silent_mode=False):
+async def async_test_dns_resolution(dns_servers, domains, num_tests, output_file, show_graph=False, summary_only=False, silent_mode=False):
+    results = {server: [] for server in dns_servers}
+    
+    if not domains:
+        print("Errore: Nessun dominio disponibile per il test.")
+        return
+    
+    progress_bar = tqdm(total=num_tests * len(dns_servers), desc="Testing DNS resolution", unit="req")
+    summary_data = {server: [] for server in dns_servers}
+    
+    async def resolve_domain(session, server, domain):
+        start_time = time.time()
+        try:
+            await session.get(f"http://{domain}", timeout=2)
+            elapsed_time = (time.time() - start_time) * 1000  # Convert to ms
+        except Exception:
+            elapsed_time = None  # Failed resolution
+        results[server].append(elapsed_time)
+        summary_data[server].append(elapsed_time)
+        
+        if not silent_mode:
+            tqdm.write(f"{domain} - {server}: {elapsed_time} ms")
+        
+        progress_bar.update(1)
+    
+    async with aiohttp.ClientSession() as session:
+        tasks = []
+        for _ in range(num_tests):
+            domain = random.choice(domains)
+            for server in dns_servers:
+                tasks.append(resolve_domain(session, server, domain))
+        await asyncio.gather(*tasks)
+    
+    progress_bar.close()
+    
+    with open(output_file, "w") as f:
+        json.dump(results, f, indent=4)
+    
+    summarize_results(results)
+    
+    if show_graph:
+        plot_results(results)
+
+def test_dns_resolution(dns_servers, domains, num_tests, output_file, show_graph=False, summary_only=False, silent_mode=False):
     results = {server: [] for server in dns_servers}
     
     if not domains:
@@ -47,7 +94,7 @@ def test_dns_resolution(dns_servers, domains, num_tests=NUM_TESTS, show_graph=Fa
     
     progress_bar.close()
     
-    with open("dns_test_results.json", "w") as f:
+    with open(output_file, "w") as f:
         json.dump(results, f, indent=4)
     
     summarize_results(results)
@@ -77,24 +124,34 @@ def plot_results(results):
     plt.grid(axis='y')
     plt.show(block=True)
 
-def load_and_plot():
-    with open("dns_test_results.json", "r") as f:
+def load_and_plot(output_file):
+    with open(output_file, "r") as f:
         results = json.load(f)
     plot_results(results)
 
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser()
+    parser.add_argument("--config-file", type=str, default="config.yaml", help="Path to the configuration file")
     parser.add_argument("--show-graph", action="store_true", help="Show the results graph")
     parser.add_argument("--summary-only", action="store_true", help="Show only the summary results")
     parser.add_argument("--load-graph", action="store_true", help="Load and show graph from saved results")
     parser.add_argument("--silent-mode", action="store_true", help="Disable per-request output, show progress bar instead")
+    parser.add_argument("--async-mode", action="store_true", help="Run tests in asynchronous mode")
     args = parser.parse_args()
     
+    config = load_config(args.config_file)
+    dns_servers = config["dns_servers"]
+    num_tests = config["num_tests"]
+    output_file = config["output_file"]
+    domains_file = config["domains_file"]
+    domains = load_domains(domains_file)
+    
     if args.load_graph:
-        load_and_plot()
+        load_and_plot(output_file)
     else:
-        dns_servers = ["192.168.1.254", "192.168.1.57", "8.8.8.8"]
-        domains = load_domains(DOMAINS_FILE)
-        test_dns_resolution(dns_servers, domains, NUM_TESTS, args.show_graph, args.summary_only, args.silent_mode)
+        if args.async_mode:
+            asyncio.run(async_test_dns_resolution(dns_servers, domains, num_tests, output_file, args.show_graph, args.summary_only, args.silent_mode))
+        else:
+            test_dns_resolution(dns_servers, domains, num_tests, output_file, args.show_graph, args.summary_only, args.silent_mode)
 
